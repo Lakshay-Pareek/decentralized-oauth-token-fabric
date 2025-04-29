@@ -1,68 +1,125 @@
-# Running the test network
+# Decentralized OAuth 2.0 Token Issuer for Simulated Network Functions (NFs)
 
-You can use the `./network.sh` script to stand up a simple Fabric test network. The test network has two peer organizations with one peer each and a single node raft ordering service. You can also use the `./network.sh` script to create channels and deploy chaincode. For more information, see [Using the Fabric test network](https://hyperledger-fabric.readthedocs.io/en/latest/test_network.html). The test network is being introduced in Fabric v2.0 as the long term replacement for the `first-network` sample.
+## Overview
+This project demonstrates a decentralized mechanism for OAuth 2.0 token issuance and validation using Hyperledger Fabric. It simulates communication between Network Functions (NFs), where tokens are required for secure interaction. The system mimics the behavior of a 5G core's access control logic without fully integrating with a 5G network.
 
-If you are planning to run the test network with consensus type BFT then please pass `-bft` flag as input to the `network.sh` script when creating the channel. This sample also supports the use of consensus type BFT and CA together.
-That is to create a network use:
-```bash
-./network.sh up -bft
+The primary objective is to decentralize trust from a centralized OAuth server by leveraging blockchain technology to provide transparent, immutable, and verifiable token lifecycle management.
+
+---
+
+## Objectives
+
+### 1. Fabric Network Setup
+- **Organization**: 1
+- **Peers**: 2
+- **Certificate Authority**: Basic CA setup
+
+### 2. Chaincode (Smart Contract)
+Implements four core functionalities:
+- **NF Registration**: On-chain storage of NF metadata (identifiers, roles, public keys).
+- **Token Lifecycle Management**: Issue, store, and manage OAuth 2.0-like tokens.
+- **Token Validation**: On-chain logic to verify authenticity and integrity of tokens.
+- **Token Expiry & Revocation**: Tokens can be set to expire or revoked manually.
+
+### 3. Simulated Network Functions
+- **NF-A**: Simulated service to request access tokens.
+- **NF-B**: Simulated service to validate access tokens.
+
+### 4. OAuth 2.0 Integration
+- Tokens requested with `Client ID` and `Secret`.
+- Tokens modeled as JWTs and signed using ledger-backed credentials.
+- Verifiability is anchored in blockchain data, making tokens tamper-evident.
+
+### 5. Demonstration Flow
+- NF-A requests a token.
+- NF-B validates token received from NF-A.
+- Token authenticity, expiry, and revocation status are validated against blockchain records.
+
+---
+
+## Architecture Diagram
+```
++----------------+      request token     +-------------------+
+|     NF-A       |----------------------->| Hyperledger Fabric|
+| (Token Issuer) |                        |   Smart Contract  |
++----------------+                        +-------------------+
+       |                                              ^
+       | send token                                   |
+       v                                              |
++----------------+      validate token     +-------------------+
+|     NF-B       |<-----------------------| Hyperledger Fabric|
+| (Token Verifier)|                        |   Smart Contract  |
++----------------+                        +-------------------+
 ```
 
-To create a channel use:
+---
 
-```bash
-./network.sh createChannel -bft
+## Project Structure
+```
+.
+├── chaincode/                # Chaincode for NF management and token lifecycle
+│   └── token_manager.go      # Core logic for registration, issuance, validation
+├── nf_a.py                   # Simulated NF-A (token requester)
+├── nf_b.py                   # Simulated NF-B (token validator)
+├── README.md                 # Project description and setup instructions
 ```
 
-To restart a running network use:
+---
 
+## How to Run
+
+### 1. Start Fabric Network
 ```bash
-./network.sh restart -bft
+cd fabric-samples/test-network
+./network.sh up createChannel -ca
+./network.sh deployCC -ccn tokenmanager -ccp ../chaincode/ -ccl go
 ```
 
-Note that running the createChannel command will start the network, if it is not already running.
-
-Before you can deploy the test network, you need to follow the instructions to [Install the Samples, Binaries and Docker Images](https://hyperledger-fabric.readthedocs.io/en/latest/install.html) in the Hyperledger Fabric documentation.
-
-## Using the Peer commands
-
-The `setOrgEnv.sh` script can be used to set up the environment variables for the organizations, this will help to be able to use the `peer` commands directly.
-
-First, ensure that the peer binaries are on your path, and the Fabric Config path is set assuming that you're in the `test-network` directory.
-
+### 2. Run Simulated NFs
+#### Request a Token (NF-A)
 ```bash
- export PATH=$PATH:$(realpath ../bin)
- export FABRIC_CFG_PATH=$(realpath ../config)
+python3 nf_a.py
+```
+#### Validate a Token (NF-B)
+```bash
+python3 nf_b.py
 ```
 
-You can then set up the environment variables for each organization. The `./setOrgEnv.sh` command is designed to be run as follows.
+---
 
-```bash
-export $(./setOrgEnv.sh Org2 | xargs)
-```
+## How OAuth 2.0 Was Implemented
+- Token issuance mimics OAuth 2.0's client credentials grant type.
+- Tokens are structured as JSON Web Tokens (JWT)-like objects.
+- Client credentials are verified, and token metadata is stored on-chain.
+- Validation includes signature checking, expiry, and revocation.
 
-(Note bash v4 is required for the scripts.)
+---
 
-You will now be able to run the `peer` commands in the context of Org2. If a different command prompt, you can run the same command with Org1 instead.
-The `setOrgEnv` script outputs a series of `<name>=<value>` strings. These can then be fed into the export command for your current shell.
+## How Fabric is Used to Decentralize Trust
+- Tokens and NF data are stored and validated using a permissioned blockchain ledger.
+- Chaincode logic ensures that no single central authority controls access verification.
+- All token operations are immutably recorded and verifiable by all peers.
 
-## Chaincode-as-a-service
+---
 
-To learn more about how to use the improvements to the Chaincode-as-a-service please see this [tutorial](./test-network/../CHAINCODE_AS_A_SERVICE_TUTORIAL.md). It is expected that this will move to augment the tutorial in the [Hyperledger Fabric ReadTheDocs](https://hyperledger-fabric.readthedocs.io/en/release-2.4/cc_service.html)
+## Security Considerations
+- **Spoofing Protection**: Token issuance tied to cryptographic credentials.
+- **Tampering Prevention**: All data changes require consensus on the Fabric network.
+- **Revocation Control**: Admins can revoke tokens early to respond to threats.
 
+---
 
-## Podman
+## License
+This project is provided for academic and research purposes.
 
-*Note - podman support should be considered experimental but the following has been reported to work with podman 4.1.1 on Mac. If you wish to use podman a LinuxVM is recommended.*
+---
 
-Fabric's `install-fabric.sh` script has been enhanced to support using `podman` to pull down images and tag them rather than docker. The images are the same, just pulled differently. Simply specify the 'podman' argument when running the `install-fabric.sh` script. 
+## Author
+**Lakshay Pareek**  
+Linux Foundation Mentorship Program - Blockchain
 
-Similarly, the `network.sh` script has been enhanced so that it can use `podman` and `podman-compose` instead of docker. Just set the environment variable `CONTAINER_CLI` to `podman` before running the `network.sh` script:
+---
 
-```bash
-CONTAINER_CLI=podman ./network.sh up
-````
-
-As there is no Docker-Daemon when using podman, only the `./network.sh deployCCAAS` command will work. Following the Chaincode-as-a-service Tutorial above should work. 
-
+## Repository
+[GitHub Link](https://github.com/Lakshay-Pareek/decentralized-oauth-token-fabric)
 
