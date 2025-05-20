@@ -72,7 +72,7 @@ Implements four core functionalities:
 ```bash
 cd fabric-samples/test-network
 ./network.sh up createChannel -ca
-./network.sh deployCC -ccn tokenmanager -ccp ../chaincode/ -ccl go
+./network.sh deployCC -ccn basic -ccp ../asset-transfer-basic/chaincode-go -ccl go
 ```
 
 ### 2. Run Simulated NFs
